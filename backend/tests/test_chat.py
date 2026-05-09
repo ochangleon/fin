@@ -118,3 +118,60 @@ async def test_chat_fallback(client):
     resp = await client.post("/api/chat", json={"message": "random nonsense xyz"})
     data = resp.json()
     assert "trade" in data["message"].lower() or "portfolio" in data["message"].lower()
+
+
+# ---------------------------------------------------------------------------
+# Structured-output parsing
+# ---------------------------------------------------------------------------
+
+
+def test_parse_llm_content_happy_path():
+    """Valid JSON with all fields parses into ChatResponse."""
+    from app.chat import _parse_llm_content
+
+    payload = (
+        '{"message": "Buying AAPL", '
+        '"trades": [{"ticker": "AAPL", "side": "buy", "quantity": 5}], '
+        '"watchlist_changes": [{"ticker": "PYPL", "action": "add"}]}'
+    )
+    result = _parse_llm_content(payload)
+    assert result.message == "Buying AAPL"
+    assert result.trades is not None and len(result.trades) == 1
+    assert result.trades[0].ticker == "AAPL"
+    assert result.trades[0].side == "buy"
+    assert result.trades[0].quantity == 5
+    assert result.watchlist_changes is not None
+    assert result.watchlist_changes[0].action == "add"
+
+
+def test_parse_llm_content_message_only():
+    """Minimal valid JSON (just message) parses with optional fields None."""
+    from app.chat import _parse_llm_content
+
+    result = _parse_llm_content('{"message": "Hello there."}')
+    assert result.message == "Hello there."
+    assert result.trades is None
+    assert result.watchlist_changes is None
+
+
+def test_parse_llm_content_malformed_json():
+    """Malformed JSON falls back to surfacing raw content, not raising."""
+    from app.chat import _parse_llm_content
+
+    raw = "not even close to JSON"
+    result = _parse_llm_content(raw)
+    assert result.message == raw
+    assert result.trades is None
+    assert result.watchlist_changes is None
+
+
+def test_parse_llm_content_invalid_schema():
+    """JSON that is missing required fields falls back gracefully."""
+    from app.chat import _parse_llm_content
+
+    # Valid JSON but missing the required `message` field
+    raw = '{"trades": [{"ticker": "AAPL", "side": "buy", "quantity": 1}]}'
+    result = _parse_llm_content(raw)
+    # Falls back to surfacing raw text
+    assert result.message == raw
+    assert result.trades is None

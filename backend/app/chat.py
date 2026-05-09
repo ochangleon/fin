@@ -331,19 +331,31 @@ async def _execute_watchlist_change(db, ticker: str, action: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 
+def _parse_llm_content(content: str) -> ChatResponse:
+    """Parse a structured LLM response. Falls back to a plain message on errors."""
+    try:
+        parsed = json.loads(content)
+        return ChatResponse(**parsed)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        # Malformed structured output — surface raw text to the user instead of 500.
+        return ChatResponse(
+            message=content if isinstance(content, str) and content else
+            "(LLM returned an unparseable response.)"
+        )
+
+
 async def _call_llm(messages: list[dict]) -> ChatResponse:
     """Call LLM via LiteLLM -> OpenRouter and parse structured response."""
     response = await acompletion(
         model="openrouter/openai/gpt-oss-120b",
         messages=messages,
         extra_body={
+            "provider": {"order": ["Cerebras"]},
             "response_format": {"type": "json_object"},
         },
     )
 
-    content = response.choices[0].message.content
-    parsed = json.loads(content)
-    return ChatResponse(**parsed)
+    return _parse_llm_content(response.choices[0].message.content)
 
 
 # ---------------------------------------------------------------------------
