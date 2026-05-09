@@ -11,9 +11,10 @@ __pycache__/
 # Environment
 .env
 
-# Database
-db/
-**/db/finally.db
+# Database (runtime volume mount only; backend/db/ holds schema + seed)
+/db/*
+!/db/.gitkeep
+**/finally.db
 
 # Next.js
 .next/
