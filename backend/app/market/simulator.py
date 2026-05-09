@@ -32,6 +32,11 @@ EVENT_PROBABILITY = 0.005  # per ticker per update
 EVENT_MIN_PCT = 0.02
 EVENT_MAX_PCT = 0.05
 
+# Defaults applied to tickers added at runtime (not in TICKER_CONFIG)
+DEFAULT_SEED_PRICE = 100.0
+DEFAULT_DRIFT = 0.08
+DEFAULT_VOL = 0.30
+
 
 def _build_correlation_matrix(tickers: list[str]) -> np.ndarray:
     """Build a correlation matrix with tech and finance clusters."""
@@ -55,8 +60,10 @@ class Simulator(MarketDataProvider):
     def __init__(self):
         self._task: asyncio.Task | None = None
         self._tickers = list(TICKER_CONFIG.keys())
+        self._config = {t: dict(cfg) for t, cfg in TICKER_CONFIG.items()}
         self._prices = {t: cfg["seed"] for t, cfg in TICKER_CONFIG.items()}
         self._dt = UPDATE_INTERVAL / (252 * 6.5 * 3600)  # fraction of trading year
+        self._started = False
 
         # Precompute Cholesky decomposition for correlated random draws
         corr = _build_correlation_matrix(self._tickers)
@@ -67,6 +74,7 @@ class Simulator(MarketDataProvider):
         # Seed initial prices into cache
         for ticker, price in self._prices.items():
             price_cache.update(ticker, price)
+        self._started = True
         self._task = asyncio.create_task(self._run())
 
     async def stop(self) -> None:
@@ -77,6 +85,23 @@ class Simulator(MarketDataProvider):
                 await self._task
             except asyncio.CancelledError:
                 pass
+
+    def add_ticker(self, ticker: str) -> None:
+        """Begin tracking a new ticker; subsequent steps will update its price."""
+        ticker = ticker.upper().strip()
+        if not ticker or ticker in self._tickers:
+            return
+        cfg = TICKER_CONFIG.get(
+            ticker,
+            {"seed": DEFAULT_SEED_PRICE, "drift": DEFAULT_DRIFT, "vol": DEFAULT_VOL},
+        )
+        self._tickers.append(ticker)
+        self._config[ticker] = dict(cfg)
+        self._prices[ticker] = cfg["seed"]
+        corr = _build_correlation_matrix(self._tickers)
+        self._cholesky = np.linalg.cholesky(corr)
+        if self._started:
+            price_cache.update(ticker, cfg["seed"])
 
     async def _run(self) -> None:
         """Main simulation loop."""
@@ -92,7 +117,7 @@ class Simulator(MarketDataProvider):
         z_correlated = self._cholesky @ z_independent
 
         for i, ticker in enumerate(self._tickers):
-            cfg = TICKER_CONFIG[ticker]
+            cfg = self._config[ticker]
             drift = cfg["drift"]
             vol = cfg["vol"]
             s = self._prices[ticker]

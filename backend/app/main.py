@@ -23,6 +23,7 @@ async def lifespan(app: FastAPI):
     await init_db()
     provider = create_provider()
     await provider.start()
+    app.state.market_provider = provider
     start_snapshot_recorder()
     yield
     stop_snapshot_recorder()
