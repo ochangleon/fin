@@ -5,17 +5,25 @@ import { api } from "@/lib/api";
 
 interface TradeBarProps {
   onTradeExecuted: () => void;
+  selectedTicker?: string | null;
 }
 
-export default function TradeBar({ onTradeExecuted }: TradeBarProps) {
-  const [ticker, setTicker] = useState("");
+const SUBMIT_PURPLE = "#753991";
+
+export default function TradeBar({ onTradeExecuted, selectedTicker }: TradeBarProps) {
+  // userTicker = null means "not yet typed; mirror selectedTicker".
+  const [userTicker, setUserTicker] = useState<string | null>(null);
   const [quantity, setQuantity] = useState("");
   const [status, setStatus] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const ticker = userTicker ?? selectedTicker ?? "";
 
   async function executeTrade(side: "buy" | "sell") {
     const qty = parseInt(quantity, 10);
     if (!ticker.trim() || isNaN(qty) || qty <= 0) return;
 
+    setError(null);
     try {
       const result = await api.trade({
         ticker: ticker.trim().toUpperCase(),
@@ -23,13 +31,12 @@ export default function TradeBar({ onTradeExecuted }: TradeBarProps) {
         side,
       });
       setStatus(`${result.side.toUpperCase()} ${result.quantity} ${result.ticker} @ $${result.price.toFixed(2)}`);
-      setTicker("");
+      setUserTicker("");
       setQuantity("");
       onTradeExecuted();
       setTimeout(() => setStatus(null), 3000);
     } catch (err) {
-      setStatus(`Error: ${err instanceof Error ? err.message : "Trade failed"}`);
-      setTimeout(() => setStatus(null), 3000);
+      setError(`Error: ${err instanceof Error ? err.message : "Trade failed"}`);
     }
   }
 
@@ -39,7 +46,7 @@ export default function TradeBar({ onTradeExecuted }: TradeBarProps) {
         type="text"
         placeholder="Ticker"
         value={ticker}
-        onChange={(e) => setTicker(e.target.value)}
+        onChange={(e) => setUserTicker(e.target.value)}
         className="w-24 rounded border border-border bg-bg-secondary px-2 py-1 text-text-primary outline-none focus:border-accent-blue"
       />
       <input
@@ -52,19 +59,20 @@ export default function TradeBar({ onTradeExecuted }: TradeBarProps) {
       />
       <button
         onClick={() => executeTrade("buy")}
-        className="rounded bg-green px-3 py-1 font-semibold text-bg-primary hover:brightness-110"
+        style={{ backgroundColor: SUBMIT_PURPLE }}
+        className="rounded px-3 py-1 font-semibold text-text-primary hover:brightness-110"
       >
         BUY
       </button>
       <button
         onClick={() => executeTrade("sell")}
-        className="rounded bg-red px-3 py-1 font-semibold text-bg-primary hover:brightness-110"
+        style={{ backgroundColor: SUBMIT_PURPLE }}
+        className="rounded px-3 py-1 font-semibold text-text-primary hover:brightness-110"
       >
         SELL
       </button>
-      {status && (
-        <span className="text-text-secondary">{status}</span>
-      )}
+      {status && <span className="text-text-secondary">{status}</span>}
+      {error && <span className="text-red">{error}</span>}
     </div>
   );
 }

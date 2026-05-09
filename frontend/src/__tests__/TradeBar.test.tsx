@@ -220,4 +220,19 @@ describe("TradeBar", () => {
       });
     });
   });
+
+  it("defaults ticker field to selectedTicker prop", () => {
+    render(<TradeBar onTradeExecuted={onTradeExecuted} selectedTicker="TSLA" />);
+    expect(screen.getByPlaceholderText("Ticker")).toHaveValue("TSLA");
+  });
+
+  it("does not overwrite user-typed ticker when selectedTicker changes", () => {
+    const { rerender } = render(
+      <TradeBar onTradeExecuted={onTradeExecuted} selectedTicker="AAPL" />,
+    );
+    const tickerInput = screen.getByPlaceholderText("Ticker");
+    fireEvent.change(tickerInput, { target: { value: "NVDA" } });
+    rerender(<TradeBar onTradeExecuted={onTradeExecuted} selectedTicker="MSFT" />);
+    expect(tickerInput).toHaveValue("NVDA");
+  });
 });

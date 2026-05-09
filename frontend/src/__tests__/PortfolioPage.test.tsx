@@ -9,11 +9,13 @@ vi.mock("recharts", () => ({
   XAxis: () => null,
   YAxis: () => null,
   Tooltip: () => null,
+  Treemap: () => <svg data-testid="treemap" />,
 }));
 
 // Mock lightweight-charts
 vi.mock("lightweight-charts", () => ({
   createChart: () => ({
+    addSeries: () => ({ setData: vi.fn(), update: vi.fn() }),
     addLineSeries: () => ({ setData: vi.fn(), update: vi.fn() }),
     timeScale: () => ({ fitContent: vi.fn() }),
     applyOptions: vi.fn(),
@@ -21,6 +23,7 @@ vi.mock("lightweight-charts", () => ({
   }),
   ColorType: { Solid: 0 },
   LineType: { Simple: 0 },
+  LineSeries: { type: "Line" },
 }));
 
 // Mock EventSource for useMarketData
@@ -28,6 +31,8 @@ class MockEventSource {
   onopen: (() => void) | null = null;
   onmessage: ((e: MessageEvent) => void) | null = null;
   onerror: (() => void) | null = null;
+  addEventListener = vi.fn();
+  removeEventListener = vi.fn();
   close = vi.fn();
   constructor() {
     setTimeout(() => this.onopen?.(), 0);
