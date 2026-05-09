@@ -91,7 +91,7 @@ export default function Home() {
 
           {/* Trade bar */}
           <Panel title="Trade" className="h-14 shrink-0">
-            <TradeBar onTradeExecuted={refreshPortfolio} />
+            <TradeBar onTradeExecuted={refreshPortfolio} selectedTicker={selectedTicker} />
           </Panel>
         </div>
 
