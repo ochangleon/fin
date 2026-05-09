@@ -131,4 +131,110 @@ describe("Watchlist", () => {
     expect(within(thead).getByText("Price")).toBeInTheDocument();
     expect(within(thead).getByText("Chg%")).toBeInTheDocument();
   });
+
+  it("removes a ticker via row action", async () => {
+    vi.mocked(api.getWatchlist).mockResolvedValue([{ ticker: "AAPL" }]);
+
+    render(
+      <Watchlist
+        prices={basePrices}
+        priceHistory={{}}
+        selectedTicker={null}
+        onSelectTicker={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByText("AAPL")).toBeInTheDocument();
+    const removeBtn = screen.getByTitle("Remove");
+    fireEvent.click(removeBtn);
+
+    await waitFor(() => expect(screen.queryByText("AAPL")).not.toBeInTheDocument());
+    expect(api.removeTicker).toHaveBeenCalledWith("AAPL");
+  });
+
+  it("toggles flash-up class on uptick", async () => {
+    vi.mocked(api.getWatchlist).mockResolvedValue([{ ticker: "AAPL" }]);
+
+    const { rerender, container } = render(
+      <Watchlist
+        prices={{
+          AAPL: {
+            ticker: "AAPL",
+            price: 150.0,
+            previous_price: 150.0,
+            timestamp: "2026-01-01T00:00:00Z",
+            direction: "flat" as const,
+          },
+        }}
+        priceHistory={{}}
+        selectedTicker={null}
+        onSelectTicker={vi.fn()}
+      />
+    );
+
+    await screen.findByText("AAPL");
+
+    rerender(
+      <Watchlist
+        prices={{
+          AAPL: {
+            ticker: "AAPL",
+            price: 151.0,
+            previous_price: 150.0,
+            timestamp: "2026-01-01T00:00:01Z",
+            direction: "up" as const,
+          },
+        }}
+        priceHistory={{}}
+        selectedTicker={null}
+        onSelectTicker={vi.fn()}
+      />
+    );
+
+    const row = container.querySelector("tbody tr")!;
+    await waitFor(() => expect(row.classList.contains("flash-up")).toBe(true));
+  });
+
+  it("toggles flash-down class on downtick", async () => {
+    vi.mocked(api.getWatchlist).mockResolvedValue([{ ticker: "AAPL" }]);
+
+    const { rerender, container } = render(
+      <Watchlist
+        prices={{
+          AAPL: {
+            ticker: "AAPL",
+            price: 150.0,
+            previous_price: 150.0,
+            timestamp: "2026-01-01T00:00:00Z",
+            direction: "flat" as const,
+          },
+        }}
+        priceHistory={{}}
+        selectedTicker={null}
+        onSelectTicker={vi.fn()}
+      />
+    );
+
+    await screen.findByText("AAPL");
+
+    rerender(
+      <Watchlist
+        prices={{
+          AAPL: {
+            ticker: "AAPL",
+            price: 149.0,
+            previous_price: 150.0,
+            timestamp: "2026-01-01T00:00:01Z",
+            direction: "down" as const,
+          },
+        }}
+        priceHistory={{}}
+        selectedTicker={null}
+        onSelectTicker={vi.fn()}
+      />
+    );
+
+    const row = container.querySelector("tbody tr")!;
+    await waitFor(() => expect(row.classList.contains("flash-down")).toBe(true));
+  });
 });
